@@ -42,7 +42,8 @@ module.exports = function(grunt) {
           'dist/plugins/find-many.js': 'src/plugins/find-many.js',
           'dist/plugins/preload.js': 'src/plugins/preload.js',
           'dist/plugins/nested-dirty.js': 'src/plugins/nested-dirty.js',
-          'dist/styles/ams.js': 'src/styles/ams.js'
+          'dist/styles/ams.js': 'src/styles/ams.js',
+          'dist/styles/jsonapi.js': 'src/styles/jsonapi.js'
         }
       }
     },
@@ -60,7 +61,8 @@ module.exports = function(grunt) {
           'dist/plugins/find-many.min.js': 'dist/plugins/find-many.js',
           'dist/plugins/preload.min.js': 'dist/plugins/preload.js',
           'dist/plugins/nested-dirty.min.js': 'dist/plugins/nested-dirty.js',
-          'dist/styles/ams.min.js': 'dist/styles/ams.js'
+          'dist/styles/ams.min.js': 'dist/styles/ams.js',
+          'dist/styles/jsonapi.min.js': 'dist/styles/jsonapi.js'
         }
       }
     },

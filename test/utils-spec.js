@@ -1,6 +1,6 @@
 'use strict';
 
-describe('Restmod builder:', function() {
+describe('Restmod Utils:', function() {
 
   beforeEach(module('restmod'));
 
@@ -72,5 +72,96 @@ describe('Restmod builder:', function() {
     });
 
   });
+
+  describe('indexWhere', function() {
+
+    var _comparer = function(_item){return _item == 3; };
+
+    it('should return -1 if item is not in array', function() {
+      expect(Utils.indexWhere([1,2,4], _comparer)).toEqual(-1);
+    });
+
+    it('should return correct index if item is in array', function() {
+      expect(Utils.indexWhere([1,2,3], _comparer)).toEqual(2);
+    });
+
+    it('should return -1 index if item is in array but after given start point', function() {
+      expect(Utils.indexWhere([1,2,3,4,5,6,7], _comparer, 3)).toEqual(-1);
+    });
+
+  });
+
+  describe('pushIfNotExist', function() {
+
+    var _array = [];
+
+    it('should insert an element in empty array', function() {
+      _array = Utils.pushIfNotExist(_array, "Mango");
+      expect(_array).toEqual(["Mango"]);
+    });
+
+    it('should not insert an element if already exists', function() {
+      _array = Utils.pushIfNotExist(_array, "Mango");
+      expect(_array).toEqual(["Mango"]);
+    });
+
+    it('should insert an element if already not exists', function() {
+      _array = Utils.pushIfNotExist(_array, "Apple");
+      expect(_array).toEqual(["Mango", "Apple"]);
+    });
+
+    it('should work with custom comparer function', function() {
+      _array = Utils.pushIfNotExist(_array, "Banana", function(_item){return _item == "Banana"; });
+      expect(_array).toEqual(["Mango", "Apple", "Banana"]);
+    });
+
+  });
+
+  describe('pushFlatten', function() {
+
+    var _array = [], _array2 = [];
+
+    it('should insert an element in empty array', function() {
+      _array = Utils.pushFlatten(_array, "Mango");
+      expect(_array).toEqual(["Mango"]);
+    });
+
+    it('should push an element in array', function() {
+      _array = Utils.pushFlatten(_array, "Apple");
+      expect(_array).toEqual(["Mango", "Apple"]);
+    });
+
+    it('should push an array in array', function() {
+      _array = Utils.pushFlatten(_array, ["Banana"]);
+      expect(_array).toEqual(["Mango", "Apple","Banana"]);
+    });
+
+    it('should push an array of array in array', function() {
+      _array = Utils.pushFlatten(_array, [["Dates"],["Peach"]]);
+      expect(_array).toEqual(["Mango", "Apple","Banana","Dates","Peach"]);
+    });
+
+    it('should insert an array in empty array', function() {
+      _array2 = Utils.pushFlatten(_array2, ["Mango"]);
+      expect(_array2).toEqual(["Mango"]);
+    });
+
+    it('should push an element in array', function() {
+      _array2 = Utils.pushFlatten(_array2, "Apple");
+      expect(_array2).toEqual(["Mango", "Apple"]);
+    });
+
+    it('should push an array in array', function() {
+      _array2 = Utils.pushFlatten(_array2, ["Banana"]);
+      expect(_array2).toEqual(["Mango", "Apple","Banana"]);
+    });
+
+    it('should push an array of array in array', function() {
+      _array2 = Utils.pushFlatten(_array2, [["Dates"],["Peach"]]);
+      expect(_array2).toEqual(["Mango", "Apple","Banana","Dates","Peach"]);
+    });
+
+  });
+
 });
 

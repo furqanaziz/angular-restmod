@@ -168,6 +168,53 @@ RMModule.factory('RMUtils', ['$log', function($log) {
      *
      * @description
      *
+     * Push an object into array if it already not exists.
+     *
+     * @param {array} _array target array
+     * @param {object} _element is object to push into array
+     * @param {function} _accept matching function
+     * @return {number} Object index or -1 if not found
+     */
+    pushIfNotExist: function(_array, _element, _accept) {
+      _accept = _accept || function(_item){ return _item === _element; }
+
+      if (this.indexWhere(_array, _accept) === -1) {
+        _array.push(_element);
+      }
+
+      return _array;
+    },
+
+    /**
+     * @memberof Utils
+     *
+     * @description
+     *
+     * Push an multiple items into array, Will flatten the child arrays
+     *
+     * @param {array} _array target array
+     * @param {object} _element is object to push into array
+     * @param {function} _accept matching function
+     * @return {number} Object index or -1 if not found
+     */
+    pushFlatten: function(_array, _element){
+      var self = this;
+      if(angular.isArray(_element)){
+        angular.forEach(_element, function(_value){
+          self.pushFlatten(_array, _value);
+        });
+      }else if(_element){
+        _array.push(_element);
+      }
+
+      return _array;
+    },
+  
+    /**
+     * @memberof Utils
+     *
+     * @description
+     *
      * Extend an object using `Utils.override` instead of just replacing the functions.
      *
      * @param  {object} _target Object to be extended
