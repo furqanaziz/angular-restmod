@@ -1,6 +1,6 @@
 /**
  * API Bound Models for AngularJS
- * @version v1.1.11 - 2016-12-06
+ * @version v1.1.11 - 2017-01-15
  * @link https://github.com/angular-platanus/restmod
  * @author Ignacio Baixas <ignacio@platan.us>
  * @license MIT License, http://www.opensource.org/licenses/MIT
@@ -3855,129 +3855,6 @@ RMModule.factory('JsonApiPacker', ['restmod', '$injector', 'inflector', '$log', 
   }
 
   /* ------------------------------------------------- */
-  /* Decoding and encoding singule resource object 
-  /* this is done for before/after pack/unpack
-  /* ------------------------------------------------- */
-  var decode = function(_resource, _raw, _mask){
-    var attributes = attrEnvelop.call(this, _resource, 'fetch'),
-        relationships = relsEnvelop.call(this, _resource, 'fetch');
-
-    // mark as IdObject and try to resolve from cache
-    if(_resource.$idObject !== true &&
-      attributes && !_raw.hasOwnProperty(attributes) && 
-      relationships && !_raw.hasOwnProperty(relationships))
-    {
-      _resource.$idObject = true;
-      packerCache.resolve(_resource);
-    }
-    // Skip if already decoded from cache
-    if(!_resource.$resolved){
-      _raw = disclose.call(this, attributes, _raw);
-      _raw = disclose.call(this, relationships, _raw);
-      _raw = this.$super(_resource, _raw, _mask);
-    }
-  };
-
-  var encode = function(_resource, _mask){
-    var raw = {},
-        key = this.getProperty('primaryKey', 'id'),
-        type = this.getProperty('primaryType', 'type'),
-        attributes = attrEnvelop.call(this, _resource, 'send'),
-        relationships = relsEnvelop.call(this, _resource, 'send');
-
-    function isSkipable(_attr, _skip){
-      return [key, type, attributes, relationships]
-            .concat(_skip)
-            .indexOf(_attr) === -1
-    }
-    function hasRelationMeta(_attr){
-      var meta = this.$$getDescription(_attr),
-          hasMeta = meta && meta.hasOwnProperty('relation');
-      if(!hasMeta && this.$type.encodeName){
-        meta = this.$$getDescription(this.$type.decodeName(_attr));
-      }
-      return meta && meta.hasOwnProperty('relation');
-    }
-    function isRleation(_attr){
-      var options = this.getProperty('jsonRelationships', {}),
-          skip = options.skip || [];
-      return isSkipable(_attr, skip) && hasRelationMeta.call(this, _attr);
-    }
-    function isAttribute(_attr){
-      var options = this.getProperty('jsonAttributes', {}),
-          skip = options.skip || [];
-      return isSkipable(_attr, skip) && !hasRelationMeta.call(this, _attr);
-    }
-
-    if(_resource.$idObject){
-      if(!_resource[key]) return null;
-      raw[key] = _resource[key];
-      raw[type] = _resource[type] || _resource.$type.identity(true);
-    }else{
-      raw = this.$super(_resource, _mask);
-      raw = enclose.call(this, relationships, raw, isRleation);
-      raw = enclose.call(this, attributes, raw, isAttribute);
-    }
-    return raw;
-  };
-
-  /* ------------------------------------------------- */
-  /* packing and unpacking server request and response  
-  /* ------------------------------------------------- */
-  var unpack = function(_resource, _raw) {
-    var nodes = [],
-        root = rootEnvelop.call(this, _resource, 'fetch'),
-        key = this.getProperty('primaryKey', 'id'),
-        type = this.getProperty('primaryType', 'type'),
-        links = this.getProperty('jsonLinks', 'included'),
-        members = this.getProperty('jsonMembers', ['.']),
-        included = this.getProperty('jsonIncluded', links);
-
-    nodes = Utils.pushFlatten(nodes, root);
-    nodes = Utils.pushFlatten(nodes, members);
-    nodes = Utils.pushFlatten(nodes, included);
-
-    /// Processing all extra members
-    members = (members === true) ? ['.'] : members;
-    members = (typeof members === 'string') ? [members] : members;
-    if(members && angular.isArray(members)){
-      angular.forEach(members, function(_feature){
-        processFeature(_raw, _feature, nodes, function(_key, _value) {
-          if(_feature === '.'){
-            var feature = "$" + _key;
-            _resource[feature] = _value;
-          }else{
-            var feature = "$" + _feature;
-            _resource[feature] = _resource[feature] || {};
-            _resource[feature][_key] = _value;
-          }
-        });
-      });
-    }
-
-    /// Processing Cache
-    if(included) {
-      processFeature(_raw, included, nodes, function(_key, _value) {
-        packerCache.feed(_value[type] || _key , _value);
-      });
-    }
-
-    return root ? _raw[root] : _raw;
-  };
-
-  var pack = function(_resource, _raw) {
-    var root = rootEnvelop.call(this, _resource, 'send');
-
-    if(root) {
-      var result = {};
-      result[root] = _raw;
-      return result;
-    } else {
-      return _raw;
-    }
-  };
-
-  /* ------------------------------------------------- */
   /* wraps a hook callback to give access to $owner
   /* ------------------------------------------------- */
   function wrapHook(_fun, _owner) {
@@ -4001,6 +3878,300 @@ RMModule.factory('JsonApiPacker', ['restmod', '$injector', 'inflector', '$log', 
     }
   }
 
+  var EXT = {
+    /* ------------------------------------------------- */
+    /* Decoding and encoding singule resource object 
+    /* this is done for before/after pack/unpack
+    /* ------------------------------------------------- */
+    decode: function(_resource, _raw, _mask){
+      var attributes = attrEnvelop.call(this, _resource, 'fetch'),
+          relationships = relsEnvelop.call(this, _resource, 'fetch');
+
+      // mark as IdObject and try to resolve from cache
+      if(_resource.$idObject !== true &&
+        attributes && !_raw.hasOwnProperty(attributes) && 
+        relationships && !_raw.hasOwnProperty(relationships))
+      {
+        _resource.$idObject = true;
+        _resource.$pk = _resource.$type.inferKey(_raw);
+        _resource = packerCache.resolve(_resource);
+      }
+
+      // Skip if already decoded from cache
+      if(!_resource.$resolved){
+        _raw = disclose.call(this, attributes, _raw);
+        _raw = disclose.call(this, relationships, _raw);
+        this.$super(_resource, _raw, _mask);
+      }
+    },
+
+    encode: function(_resource, _mask){
+      var raw = {},
+          key = this.getProperty('primaryKey', 'id'),
+          type = this.getProperty('primaryType', 'type'),
+          attributes = attrEnvelop.call(this, _resource, 'send'),
+          relationships = relsEnvelop.call(this, _resource, 'send');
+
+      function isSkipable(_attr, _skip){
+        return [key, type, attributes, relationships]
+              .concat(_skip)
+              .indexOf(_attr) === -1
+      }
+      function hasRelationMeta(_attr){
+        var meta = this.$$getDescription(_attr),
+            hasMeta = meta && meta.hasOwnProperty('relation');
+        if(!hasMeta && this.$type.encodeName){
+          meta = this.$$getDescription(this.$type.decodeName(_attr));
+        }
+        return meta && meta.hasOwnProperty('relation');
+      }
+      function isRleation(_attr){
+        var options = this.getProperty('jsonRelationships', {}),
+            skip = options.skip || [];
+        return isSkipable(_attr, skip) && hasRelationMeta.call(this, _attr);
+      }
+      function isAttribute(_attr){
+        var options = this.getProperty('jsonAttributes', {}),
+            skip = options.skip || [];
+        return isSkipable(_attr, skip) && !hasRelationMeta.call(this, _attr);
+      }
+
+      if(_resource.$idObject){
+        if(!_resource[key]) return null;
+        raw[key] = _resource[key];
+        raw[type] = _resource[type] || _resource.$type.identity(true);
+      }else{
+        raw = this.$super(_resource, _mask);
+        raw = enclose.call(this, relationships, raw, isRleation);
+        raw = enclose.call(this, attributes, raw, isAttribute);
+      }
+      return raw;
+    },
+
+    /* ------------------------------------------------- */
+    /* packing and unpacking server request and response  
+    /* ------------------------------------------------- */
+    unpack: function(_resource, _raw) {
+      var nodes = [],
+          root = rootEnvelop.call(this, _resource, 'fetch'),
+          key = this.getProperty('primaryKey', 'id'),
+          type = this.getProperty('primaryType', 'type'),
+          links = this.getProperty('jsonLinks', 'included'),
+          members = this.getProperty('jsonMembers', ['.']),
+          included = this.getProperty('jsonIncluded', links);
+
+      nodes = Utils.pushFlatten(nodes, root);
+      nodes = Utils.pushFlatten(nodes, members);
+      nodes = Utils.pushFlatten(nodes, included);
+
+      /// Processing all extra members
+      members = (members === true) ? ['.'] : members;
+      members = (typeof members === 'string') ? [members] : members;
+      if(members && angular.isArray(members)){
+        angular.forEach(members, function(_feature){
+          processFeature(_raw, _feature, nodes, function(_key, _value) {
+            if(_feature === '.'){
+              var feature = "$" + _key;
+              _resource[feature] = _value;
+            }else{
+              var feature = "$" + _feature;
+              _resource[feature] = _resource[feature] || {};
+              _resource[feature][_key] = _value;
+            }
+          });
+        });
+      }
+
+      /// Processing Cache
+      if(included) {
+        processFeature(_raw, included, nodes, function(_key, _value) {
+          packerCache.feed(_value[type] || _key , _value);
+        });
+      }
+
+      return root ? _raw[root] : _raw;
+    },
+
+    pack: function(_resource, _raw) {
+      var root = rootEnvelop.call(this, _resource, 'send');
+
+      if(root) {
+        var result = {};
+        result[root] = _raw;
+        return result;
+      } else {
+        return _raw;
+      }
+    },
+
+    /**
+     * @memberof RelationBuilderApi#
+     *
+     * @description Registers a model **reference** relation.
+     *
+     * A reference relation expects the host object to provide the primary key of the referenced object or the referenced object itself (including its key).
+     *
+     * For example, given the following resource structure with a foreign key:
+     *
+     * ```json
+     * {
+     *   user_id: 20
+     * }
+     * ```
+     *
+     * Or this other structure with inlined data:
+     *
+     * ```json
+     * {
+     *   user: {
+     *     id: 30,
+     *     name: 'Steve'
+     *   }
+     * }
+     * ```
+     *
+     * You should define the following model:
+     *
+     * ```javascript
+     * restmod.model('/bikes', {
+     *   user: { belongsTo: 'User' } // works for both cases detailed above
+     * })
+     * ```
+     *
+     * The object generated by the relation is not scoped to the host object, but to it's base class instead (not like hasOne),
+     * so the type should not be nested.
+     *
+     * Its also posible to override the **foreign key name**.
+     *
+     * When a object containing a belongsTo reference is encoded for a server request, only the primary key value is sent using the
+     * same **foreign key name** that was using on decoding. (`user_id` in the above example).
+     *
+     * @param {string}  _name Attribute name
+     * @param {string|object} _model Other model, supports a model name or a direct reference.
+     * @param {string} _key foreign key property name (optional, defaults to _attr + '_id').
+     * @param {bool} _prefetch if set to true, $fetch will be automatically called on relation object load.
+     * @return {BuilderApi} self
+     */
+    attrAsReference: function(_attr, _model, _key, _prefetch) {
+
+      this.attrDefault(_attr, null)
+          .attrMeta(_attr, { relation: 'belongs_to' });
+
+      if(_key){
+        this.attrMap(_attr, _key)
+            .attrMeta(_key, { relation: 'belongs_to' });
+      }
+
+      if(typeof _model === 'string') {
+        _model = $injector.get(_model);
+      }
+
+      this.attrDecoder(_attr, function(_raw) {
+
+          if(!this[_attr]){
+            this[_attr] = _model.$new();
+          }
+
+          _raw = _model.unpack(this[_attr], _raw);
+          if(_raw === undefined || _raw === null || _raw === false) return null;
+
+          this[_attr].$decode(_raw);
+          if(_prefetch) this[_attr].$fetch();
+          
+        })
+        .attrEncoder(_attr, function() {
+          var raw = null;
+          if(this[_attr] !== undefined && this[_attr] !== null && this[_attr] !== false){
+            raw = this[_attr].$encode();
+          }
+          raw = _model.pack(this, raw);
+          return raw;
+        });
+
+      return this;
+    },
+
+    /**
+     * @memberof RelationBuilderApi#
+     *
+     * @description Registers a model **reference** relation.
+     *
+     * A reference relation expects the host object to provide the primary key of the referenced objects or the referenced objects themselves (including its key).
+     *
+     * For example, given the following resource structure with a foreign key array:
+     *
+     * ```json
+     * {
+     *   users_ids: [20, 30]
+     * }
+     * ```
+     *
+     * Or this other structure with inlined data:
+     *
+     * ```json
+     * {
+     *   users: [{
+     *     id: 20,
+     *     name: 'Steve'
+     *   },{
+     *     id: 30,
+     *     name: 'Pili'
+     *   }]
+     * }
+     * ```
+     *
+     * You should define the following model:
+     *
+     * ```javascript
+     * restmod.model('/bikes', {
+     *   users: { belongsToMany: 'User' } // works for both cases detailed above
+     * })
+     * ```
+     *
+     * The object generated by the relation is not scoped to the host object, but to it's base class instead (unlike hasMany),
+     * so the referenced type should not be nested.
+     *
+     * When a object containing a belongsToMany reference is encoded for a server request, only the primary key value is sent for each object.
+     *
+     * @param {string}  _name Attribute name
+     * @param {string|object} _model Other model, supports a model name or a direct reference.
+     * @param {string} _keys Server name for the property that holds the referenced keys in response and request.
+     * @return {BuilderApi} self
+     */
+    attrAsReferenceToMany: function(_attr, _model, _key) {
+
+      this.attrDefault(_attr, function() { return []; })
+          .attrMeta(_attr, { relation: 'belongs_to_many' });
+
+      if(_key){
+        this.attrMap(_attr, _key)
+            .attrMeta(_key, { relation: 'belongs_to_many' });
+      }
+
+      if(typeof _model === 'string') {
+        _model = $injector.get(_model);
+      }
+
+      this.attrDecoder(_attr, function(_raw) {
+            this[_attr].length = 0;
+            _raw = _model.unpack(_model.$collection(), _raw);
+            for(var i = 0, l = _raw.length; i < l; i++) {
+              var inst = _model.$new();
+              inst.$decode(_raw[i]);
+              this[_attr].push(inst);
+            }
+          })
+          .attrEncoder(_attr, function() {
+            var result = [], others = this[_attr];
+            for(var i = 0, l = others.length; i < l; i++) {
+              result.push(others[i].$encode());
+            }
+            return _model.pack(this, result);
+          });
+
+      return this;
+    }
+  }
   /* ------------------------------------------------- */
   /* Only referenced relations are used in jsonapi.org
   /* relationships object is only containing references
@@ -4018,106 +4189,106 @@ RMModule.factory('JsonApiPacker', ['restmod', '$injector', 'inflector', '$log', 
    * @param {object} _hooks Hooks to be applied just to the instantiated record
    * @return {BuilderApi} self
    */
-  var attrAsResource = function(_attr, _model, _url, _source, _inverseOf, _hooks) {
+  // var attrAsResource = function(_attr, _model, _url, _source, _inverseOf, _hooks) {
 
-    var options, globalHooks; // global relation configuration
+  //   var options, globalHooks; // global relation configuration
 
-    this.attrDefault(_attr, function() {
+  //   this.attrDefault(_attr, function() {
 
-      if(typeof _model === 'string') {
-        _model = $injector.get(_model);
-      }
+  //     if(typeof _model === 'string') {
+  //       _model = $injector.get(_model);
+  //     }
 
-      // retrieve global options
-      options = _model.getProperty('hasOne', {});
-      globalHooks = options.hooks;
+  //     // retrieve global options
+  //     options = _model.getProperty('hasOne', {});
+  //     globalHooks = options.hooks;
     
 
-      var scope = this.$buildScope(_model, _url || _model.encodeUrlName(_attr)), inst;
+  //     var scope = this.$buildScope(_model, _url || _model.encodeUrlName(_attr)), inst;
 
-      // setup record
-      inst = _model.$new(null, scope);
-      if(globalHooks) applyHooks(inst, globalHooks, this);
-      if(_hooks) applyHooks(inst, _hooks, this);
-      inst.$dispatch('after-has-one-init');
+  //     // setup record
+  //     inst = _model.$new(null, scope);
+  //     if(globalHooks) applyHooks(inst, globalHooks, this);
+  //     if(_hooks) applyHooks(inst, _hooks, this);
+  //     inst.$dispatch('after-has-one-init');
 
-      if(_inverseOf) {
-        inst[_inverseOf] = this;
-      }
+  //     if(_inverseOf) {
+  //       inst[_inverseOf] = this;
+  //     }
 
-      return inst;
-    });
+  //     return inst;
+  //   });
 
-    if(_source || _url){
-      this.attrMap(_attr, _source || _url)
-          .attrMeta(_source || _url, { relation: 'has_one' });
-    }
+  //   if(_source || _url){
+  //     this.attrMap(_attr, _source || _url)
+  //         .attrMeta(_source || _url, { relation: 'has_one' });
+  //   }
 
-    this.attrMeta(_attr, { relation: 'has_one' })
-        .attrDecoder(_attr, function(_raw) {
-          _raw = this[_attr].$type.unpack(this[_attr], _raw);
-          this[_attr].$decode(_raw);
-        })
-        .attrEncoder(_attr, function() {
-          var raw = this[_attr].$encode();
-          raw = this[_attr].$type.pack(this, raw);
-          return raw;
-        });
+  //   this.attrMeta(_attr, { relation: 'has_one' })
+  //       .attrDecoder(_attr, function(_raw) {
+  //         _raw = this[_attr].$type.unpack(this[_attr], _raw);
+  //         this[_attr].$decode(_raw);
+  //       })
+  //       .attrEncoder(_attr, function() {
+  //         var raw = this[_attr].$encode();
+  //         raw = this[_attr].$type.pack(this, raw);
+  //         return raw;
+  //       });
 
-    return this;
-  };
+  //   return this;
+  // };
 
-  var attrAsCollection = function(_attr, _model, _url, _source, _inverseOf, _params, _hooks) {
-    var options, globalHooks; // global relation configuration
+  // var attrAsCollection = function(_attr, _model, _url, _source, _inverseOf, _params, _hooks) {
+  //   var options, globalHooks; // global relation configuration
 
-    this.attrDefault(_attr, function() {
+  //   this.attrDefault(_attr, function() {
 
-      if(typeof _model === 'string') {
-        _model = $injector.get(_model);
-      }
+  //     if(typeof _model === 'string') {
+  //       _model = $injector.get(_model);
+  //     }
 
-      // retrieve global options
-      options = _model.getProperty('hasMany', {});
-      globalHooks = options.hooks;      
+  //     // retrieve global options
+  //     options = _model.getProperty('hasMany', {});
+  //     globalHooks = options.hooks;      
 
-      var scope = this.$buildScope(_model, _url || _model.encodeUrlName(_attr)), col;
+  //     var scope = this.$buildScope(_model, _url || _model.encodeUrlName(_attr)), col;
 
-      // setup collection
-      col = _model.$collection(_params || null, scope);
-      if(globalHooks) applyHooks(col, globalHooks, this);
-      if(_hooks) applyHooks(col, _hooks, this);
-      col.$dispatch('after-has-many-init');
+  //     // setup collection
+  //     col = _model.$collection(_params || null, scope);
+  //     if(globalHooks) applyHooks(col, globalHooks, this);
+  //     if(_hooks) applyHooks(col, _hooks, this);
+  //     col.$dispatch('after-has-many-init');
 
-      // set inverse property if required.
-      if(_inverseOf) {
-        var self = this;
-        col.$on('after-add', function(_obj) {
-          _obj[_inverseOf] = self;
-        });
-      }
+  //     // set inverse property if required.
+  //     if(_inverseOf) {
+  //       var self = this;
+  //       col.$on('after-add', function(_obj) {
+  //         _obj[_inverseOf] = self;
+  //       });
+  //     }
 
-      return col;
-    });
+  //     return col;
+  //   });
 
-    if(_source || _url){
-      this.attrMap(_attr, _source || _url)
-          .attrMeta(_source || _url, { relation: 'has_many' });
-    }
+  //   if(_source || _url){
+  //     this.attrMap(_attr, _source || _url)
+  //         .attrMeta(_source || _url, { relation: 'has_many' });
+  //   }
 
-    this.attrMeta(_attr, { relation: 'has_many' })
-        .attrDecoder(_attr, function(_raw) {
-          this[_attr].$reset();
-          _raw = this[_attr].$type.unpack(this[_attr], _raw);
-          this[_attr].$decode(_raw);
-        })
-        .attrEncoder(_attr, function() {
-          var raw = this[_attr].$encode();
-          raw = this[_attr].$type.pack(this, raw);
-          return raw;
-        });
+  //   this.attrMeta(_attr, { relation: 'has_many' })
+  //       .attrDecoder(_attr, function(_raw) {
+  //         this[_attr].$reset();
+  //         _raw = this[_attr].$type.unpack(this[_attr], _raw);
+  //         this[_attr].$decode(_raw);
+  //       })
+  //       .attrEncoder(_attr, function() {
+  //         var raw = this[_attr].$encode();
+  //         raw = this[_attr].$type.pack(this, raw);
+  //         return raw;
+  //       });
 
-    return this;
-  };
+  //   return this;
+  // };
 
   /**
    * @class JsonApiPacker
@@ -4199,12 +4370,12 @@ RMModule.factory('JsonApiPacker', ['restmod', '$injector', 'inflector', '$log', 
    */
   return restmod.mixin(function() {
     this
-      .define('Model.unpack', unpack)
-      .define('Model.decode', decode)
-      .define('Model.encode', encode)
-      .define('Model.pack', pack)
-      .extend('attrAsResource', attrAsResource, ['hasOne', 'path', 'source', 'inverseOf', 'hooks'])
-      .extend('attrAsCollection', attrAsCollection, ['hasMany', 'path', 'source', 'inverseOf', 'params', 'hooks']);
+      .define('Model.unpack', EXT.unpack)
+      .define('Model.decode', EXT.decode)
+      .define('Model.encode', EXT.encode)
+      .define('Model.pack', EXT.pack)
+      .extend('attrAsReference', EXT.attrAsReference, ['belongsTo', 'key', 'prefetch'])
+      .extend('attrAsReferenceToMany', EXT.attrAsReferenceToMany, ['belongsToMany', 'key']);
   });
 
 }]);

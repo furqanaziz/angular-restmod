@@ -27,16 +27,8 @@ describe('Style: JsonApi', function() {
       }
     });
     var d = bike.$encode();
-    // console.log("------------------------------");
-    // console.log(bike);
-    // console.log(d);
-    // console.log(d.relationships.user);
-    // console.log(d.relationships['all-users'].data);
-    // console.log("------------------------------");
     expect(bike.rearWheel).toBeDefined();
     expect(bike['rear_wheel']).not.toBeDefined();
-    // expect(bike.$encode()['attributes']['rear_wheel']).toBeDefined();
-    // expect(bike.$encode()['attributes']['rearWheel']).not.toBeDefined();
   });
 
   it('should use "id" as primary key', function() {
@@ -48,15 +40,4 @@ describe('Style: JsonApi', function() {
     expect(bike.$decode({ id: 1 }).allUsers.$url()).toEqual('/api/bikes/1/all-users');
   });
 
-  // it('should extract metadata from "meta" property', function() {
-  //   bike.$unwrap({ bike: { id: 1 }, meta: { date: '2014-05-01'  } });
-  //   expect(bike.$metadata).toBeDefined();
-  //   expect(bike.$metadata.date).toBeDefined();
-  // });
-
-  // it('should extract links from "links" property', function() {
-  //   bike.$unwrap({ bike: { id: 1, 'user_id': 1 }, links: { users: [ { id: 1, name: 'Pancho' } ] } });
-  //   expect(bike.user).toBeDefined();
-  //   expect(bike.user.name).toEqual('Pancho');
-  // });
 });

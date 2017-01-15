@@ -17,6 +17,7 @@ describe('JsonApiPacker', function() {
         }
       });
     });
+
   }));
 
   beforeEach(inject(function($injector) {
@@ -150,9 +151,11 @@ describe('JsonApiPacker', function() {
 
     it('should extract attributes and relationships from given enevelops of single object', function() {
       var model = restmod.model('/api/bikes').mix('JsonApiPacker', {
-        parts: { hasMany: 'Part'},
-        items: { hasMany: 'Part', source: 'items_data'},
-        handle: { hasOne: 'Part'},
+        parts: { belongsToMany: 'Part'},
+        items: { belongsToMany: 'Part', key: 'items_data'},
+        tyres: { belongsToMany: 'Part'},
+        handle: { belongsTo: 'Part'},
+        pedle: { belongsTo: 'Part'},
         $config: {
           jsonRoot: 'data',
           jsonAttributes: 'attributes',
@@ -179,7 +182,13 @@ describe('JsonApiPacker', function() {
             },
             handle: {
               data: {id:'98', type:'handles'}
-            }
+            },
+            pedle: {
+              data: null
+            },
+            tyres: { 
+              data:[]
+            },
           }
         },
         included: [{
@@ -192,6 +201,28 @@ describe('JsonApiPacker', function() {
           },
           links: {
             "self": "http://example.com/parts/51"
+          }
+        },{
+          type: "parts",
+          id: '52',
+          attributes: {
+            "first-name": "Shaw",
+            "last-name": "Baranad",
+            "twitter": "dgeb"
+          },
+          links: {
+            "self": "http://example.com/parts/51"
+          }
+        },{
+          type: "parts",
+          id: '98',
+          attributes: {
+            "first-name": "Furqan",
+            "last-name": "Aziz",
+            "twitter": "dgebadf"
+          },
+          links: {
+            "self": "http://example.com/handle/98"
           }
         }]
 
@@ -209,14 +240,21 @@ describe('JsonApiPacker', function() {
       expect(record.items[0].id).toEqual('53');
       expect(record.items[0].type).toEqual('items');
       expect(record.handle.id).toEqual('98');
-      expect(record.handle.type).toEqual('handles');
+      expect(record.handle.type).toEqual('parts');
+      expect(record.handle['first-name']).toEqual('Furqan');
+      expect(record.handle['last-name']).toEqual('Aziz');
+      expect(record.handle['last-name']).toEqual('Aziz');
+      expect(record.pedle).toEqual(null);
+      expect(record.tyres.length).toEqual(0);
     });
 
     it('should extract attributes and relationships from given enevelops of array', function() {
       var model = restmod.model('/api/bikes').mix('JsonApiPacker', {
-        parts: { hasMany: 'Part'},
-        items: { hasMany: 'Part', source: 'items_data'},
-        handle: { hasOne: 'Part'},
+        parts: { belongsToMany: 'Part'},
+        items: { belongsToMany: 'Part', key: 'items_data'},
+        tyres: { belongsToMany: 'Part'},
+        handle: { belongsTo: 'Part'},
+        pedle: { belongsTo: 'Part'},
         $config: {
           jsonRoot: 'data',
           jsonAttributes: 'attributes',
@@ -242,7 +280,13 @@ describe('JsonApiPacker', function() {
               ]
             },
             handle: {
-              data: {id:'98', type:'handles'}
+              data: {id:'98', type:'handle'}
+            },
+            pedle: {
+              data: null
+            },
+            tyres: {
+              data: []
             }
           }
         },{  
@@ -260,6 +304,12 @@ describe('JsonApiPacker', function() {
                 {id:'57', type:'items'},
                 {id:'58', type:'items'}
               ]
+            },
+            pedle: {
+              data: null
+            },
+            tyres: {
+              data: []
             }
           }
         }],
@@ -302,7 +352,9 @@ describe('JsonApiPacker', function() {
       expect(record.items[0].id).toEqual('53');
       expect(record.items[0].type).toEqual('items');
       expect(record.handle.id).toEqual('98');
-      expect(record.handle.type).toEqual('handles');
+      expect(record.handle.type).toEqual('handle');
+      expect(record.pedle).toEqual(null);
+      expect(record.tyres.length).toEqual(0);
 
       var record = array[1];
       expect(record.attributes).toBeUndefined();
@@ -316,6 +368,8 @@ describe('JsonApiPacker', function() {
       expect(record.items.length).toEqual(2);
       expect(record.items[0].id).toEqual('57');
       expect(record.items[0].type).toEqual('items');
+      expect(record.pedle).toEqual(null);
+      expect(record.tyres.length).toEqual(0);
     });
 
     it('should allow disabling disclosing by only setting `send` config', function() {
@@ -373,9 +427,11 @@ describe('JsonApiPacker', function() {
 
     it('should enclose attributes and relationships into given enevelops', function() {
       var model = restmod.model('/api/bikes').mix('JsonApiPacker', {
-        parts: { hasMany: 'Part'},
-        items: { hasMany: 'Part', source: 'items_data'},
-        handle: { hasOne: 'Part'},
+        parts: { belongsToMany: 'Part'},
+        items: { belongsToMany: 'Part', key: 'items_data'},
+        tyres: { belongsToMany: 'Part'},
+        handle: { belongsTo: 'Part'},
+        pedle: { belongsTo: 'Part'},
         $config: {
           jsonRoot: 'data',
           jsonAttributes: 'attributesCustom',
@@ -402,13 +458,19 @@ describe('JsonApiPacker', function() {
             },
             handle: {
               data: {id:'98', type:'handles'}
+            },
+            pedle: {
+              data: null
+            },
+            tyres: {
+              data: []
             }
           }
         },
         included: [{
           type: "parts",
           id: '51',
-          attributesCustom: {
+          attributes: {
             "first-name": "Dan",
             "last-name": "Gebhardt",
             "twitter": "dgeb"
@@ -416,10 +478,32 @@ describe('JsonApiPacker', function() {
           links: {
             "self": "http://example.com/parts/51"
           }
+        },{
+          type: "parts",
+          id: '52',
+          attributes: {
+            "first-name": "Shaw",
+            "last-name": "Baranad",
+            "twitter": "dgeb"
+          },
+          links: {
+            "self": "http://example.com/parts/51"
+          }
+        },{
+          type: "parts",
+          id: '98',
+          attributes: {
+            "first-name": "Furqan",
+            "last-name": "Aziz",
+            "twitter": "dgebadf"
+          },
+          links: {
+            "self": "http://example.com/handle/98"
+          }
         }]
 
       }).$wrap()
-      
+
       expect(record.data.attributesCustom).toBeDefined();
       expect(record.data.relationshipsCustom).toBeDefined();
       expect(record.data.attributesCustom.title).toEqual("My new bike");
@@ -428,37 +512,11 @@ describe('JsonApiPacker', function() {
       expect(record.data.relationshipsCustom.parts.data[0].type).toEqual('parts');
       expect(record.data.relationshipsCustom.parts.data[0]["first-name"]).toBeUndefined();
       expect(record.data.relationshipsCustom.parts.data[0]["last-name"]).toBeUndefined();
-      expect(record.data.relationshipsCustom.items).toBeUndefined();
+      expect(record.data.relationshipsCustom['items_data'].data.length).toEqual(2);
       expect(record.data.relationshipsCustom.handle.data.id).toEqual('98');
-      expect(record.data.relationshipsCustom.handle.data.type).toEqual('handles');
-    });
-
-    it('should allow disabling enclosing by only setting `fetch` config', function() {
-
-     var model = restmod.model('/api/bikes').mix('JsonApiPacker', {
-       $config: {
-          jsonAttributes: {
-            fetch: 'attributes',
-          },
-          jsonRelationships: {
-            fetch: 'relationships',
-          },
-        }
-      });
-
-      var data = model.$new(1).$unwrap(
-        {
-          bike: { 
-            model: 'Slash', 
-            attributes: {title: "My new bike"}, 
-            relationships: {parts:{id:'1'} } 
-          } 
-        }).$wrap();
-
-      expect(data.attributes).toBeUndefined();
-      expect(data.relationships).toBeUndefined();
-      expect(data.bike.title).toEqual("My new bike");
-      expect(data.bike.parts).toEqual({id:'1'});
+      expect(record.data.relationshipsCustom.handle.data.type).toEqual('parts');
+      expect(record.data.relationshipsCustom.pedle.data).toEqual(null);
+      expect(record.data.relationshipsCustom.tyres.data.length).toEqual(0);
     });
 
   });
